@@ -109,7 +109,7 @@ const moduleColors = {
 // LOCAL STORAGE HELPERS
 // ─────────────────────────────────────────────────────────────
 
-const loadFromStorage = <T>(key: string, defaultValue: T): T => {
+const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
   if (typeof window === 'undefined') return defaultValue;
   try {
     const stored = localStorage.getItem(key);
@@ -119,7 +119,7 @@ const loadFromStorage = <T>(key: string, defaultValue: T): T => {
   }
 };
 
-const saveToStorage = <T>(key: string, value: T): void => {
+const saveToStorage = <T,>(key: string, value: T): void => {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(key, JSON.stringify(value));
@@ -139,38 +139,25 @@ export default function SistemaPOS() {
   const [showModal, setShowModal] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
-  // Data states
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  const [compras, setCompras] = useState<Compra[]>([]);
-  const [gastos, setGastos] = useState<Gasto[]>([]);
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [ventas, setVentas] = useState<Venta[]>([]);
+  // Data states with lazy initialization from localStorage
+  const [clientes, setClientes] = useState<Cliente[]>(() => loadFromStorage('pos_clientes', []));
+  const [proveedores, setProveedores] = useState<Proveedor[]>(() => loadFromStorage('pos_proveedores', []));
+  const [compras, setCompras] = useState<Compra[]>(() => loadFromStorage('pos_compras', []));
+  const [gastos, setGastos] = useState<Gasto[]>(() => loadFromStorage('pos_gastos', []));
+  const [usuarios, setUsuarios] = useState<Usuario[]>(() => loadFromStorage('pos_usuarios', []));
+  const [productos, setProductos] = useState<Producto[]>(() => loadFromStorage('pos_productos', []));
+  const [ventas, setVentas] = useState<Venta[]>(() => loadFromStorage('pos_ventas', []));
   
   // Form states
   const [formData, setFormData] = useState<any>({});
   const [editingItem, setEditingItem] = useState<any>(null);
   
-  // Config
-  const [config, setConfig] = useState({
+  // Config with lazy initialization
+  const [config, setConfig] = useState(() => loadFromStorage('pos_config', {
     nombreNegocio: 'Mi Negocio',
     moneda: '$',
     impuesto: 16,
-  });
-
-  // Load data from localStorage on mount
-  useEffect(() => {
-    setClientes(loadFromStorage('pos_clientes', []));
-    setProveedores(loadFromStorage('pos_proveedores', []));
-    setCompras(loadFromStorage('pos_compras', []));
-    setGastos(loadFromStorage('pos_gastos', []));
-    setUsuarios(loadFromStorage('pos_usuarios', []));
-    setProductos(loadFromStorage('pos_productos', []));
-    setVentas(loadFromStorage('pos_ventas', []));
-    const savedConfig = loadFromStorage('pos_config', null);
-    if (savedConfig) setConfig(savedConfig);
-  }, []);
+  }));
 
   // Save data to localStorage when it changes
   useEffect(() => { saveToStorage('pos_clientes', clientes); }, [clientes]);
