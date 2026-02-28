@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { 
   ShoppingCart, Package, Users, Truck, Receipt, TrendingDown,
   BarChart3, Settings, UserCheck, Plus, Edit, Trash2, Search,
-  X, Save, DollarSign, RefreshCw, CheckCircle, AlertTriangle,
-  FileText, Loader2
+  X, Save, RefreshCw, CheckCircle, AlertTriangle,
+  FileText, Loader2, Moon, Sun
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────
@@ -131,15 +131,15 @@ interface DashboardData {
 // ─────────────────────────────────────────────────────────────
 
 const moduleColors = {
-  ventas: { bg: 'from-violet-500 to-purple-600', light: 'bg-violet-100', text: 'text-violet-600' },
-  inventario: { bg: 'from-cyan-500 to-teal-600', light: 'bg-cyan-100', text: 'text-cyan-600' },
-  clientes: { bg: 'from-rose-500 to-pink-600', light: 'bg-rose-100', text: 'text-rose-600' },
-  proveedores: { bg: 'from-amber-500 to-orange-600', light: 'bg-amber-100', text: 'text-amber-600' },
-  compras: { bg: 'from-emerald-500 to-green-600', light: 'bg-emerald-100', text: 'text-emerald-600' },
-  gastos: { bg: 'from-red-500 to-rose-600', light: 'bg-red-100', text: 'text-red-600' },
-  reportes: { bg: 'from-indigo-500 to-blue-600', light: 'bg-indigo-100', text: 'text-indigo-600' },
-  config: { bg: 'from-slate-500 to-gray-600', light: 'bg-slate-100', text: 'text-slate-600' },
-  usuarios: { bg: 'from-sky-500 to-blue-600', light: 'bg-sky-100', text: 'text-sky-600' },
+  ventas: { bg: 'from-violet-500 to-purple-600', light: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-600 dark:text-violet-400' },
+  inventario: { bg: 'from-cyan-500 to-teal-600', light: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-600 dark:text-cyan-400' },
+  clientes: { bg: 'from-rose-500 to-pink-600', light: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-600 dark:text-rose-400' },
+  proveedores: { bg: 'from-amber-500 to-orange-600', light: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400' },
+  compras: { bg: 'from-emerald-500 to-green-600', light: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400' },
+  gastos: { bg: 'from-red-500 to-rose-600', light: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-600 dark:text-red-400' },
+  reportes: { bg: 'from-indigo-500 to-blue-600', light: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-600 dark:text-indigo-400' },
+  config: { bg: 'from-slate-500 to-gray-600', light: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400' },
+  usuarios: { bg: 'from-sky-500 to-blue-600', light: 'bg-sky-100 dark:bg-sky-900/30', text: 'text-sky-600 dark:text-sky-400' },
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -153,6 +153,7 @@ export default function SistemaPOS() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [darkMode, setDarkMode] = useState(false);
   
   // Data states
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -175,6 +176,30 @@ export default function SistemaPOS() {
     moneda: '$',
     impuesto: 16,
   });
+
+  // Cargar tema desde localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('pos_dark_mode');
+    if (savedTheme !== null) {
+      setDarkMode(savedTheme === 'true');
+    } else {
+      // Detectar preferencia del sistema
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setDarkMode(prefersDark);
+    }
+  }, []);
+
+  // Aplicar clase dark al documento
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('pos_dark_mode', String(darkMode));
+  }, [darkMode]);
+
+  const toggleDarkMode = () => setDarkMode(!darkMode);
 
   // Utilidades
   const formatCurrency = (value: number) => `${config.moneda}${value.toFixed(2)}`;
@@ -228,7 +253,7 @@ export default function SistemaPOS() {
   }, [loadData]);
 
   // ─────────────────────────────────────────────────────────────
-  // CRUD CLIENTES
+  // CRUD FUNCTIONS
   // ─────────────────────────────────────────────────────────────
 
   const handleSaveCliente = async () => {
@@ -236,48 +261,35 @@ export default function SistemaPOS() {
       showToast('Nombre y email son requeridos', 'error');
       return;
     }
-
     setLoading(true);
     try {
-      if (editingItem) {
-        // Por ahora solo actualizamos localmente, se puede agregar API PUT
-        setClientes(clientes.map(c => c.id === editingItem.id ? { ...c, ...formData } : c));
-        showToast('Cliente actualizado');
+      const res = await fetch('/api/pos/clientes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (res.ok) {
+        const nuevo = await res.json();
+        setClientes([...clientes, nuevo]);
+        showToast('Cliente registrado exitosamente');
       } else {
-        const res = await fetch('/api/pos/clientes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
-        if (res.ok) {
-          const nuevo = await res.json();
-          setClientes([...clientes, nuevo]);
-          showToast('Cliente registrado exitosamente');
-        } else {
-          const err = await res.json();
-          showToast(err.error || 'Error al registrar cliente', 'error');
-        }
+        const err = await res.json();
+        showToast(err.error || 'Error al registrar cliente', 'error');
       }
       setShowModal(null);
       setFormData({});
-      setEditingItem(null);
-    } catch (error) {
+    } catch {
       showToast('Error al guardar cliente', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // CRUD PROVEEDORES
-  // ─────────────────────────────────────────────────────────────
-
   const handleSaveProveedor = async () => {
     if (!formData.nombre) {
       showToast('El nombre es requerido', 'error');
       return;
     }
-
     setLoading(true);
     try {
       const res = await fetch('/api/pos/proveedores', {
@@ -294,23 +306,18 @@ export default function SistemaPOS() {
       }
       setShowModal(null);
       setFormData({});
-    } catch (error) {
+    } catch {
       showToast('Error al guardar proveedor', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // CRUD PRODUCTOS
-  // ─────────────────────────────────────────────────────────────
-
   const handleSaveProducto = async () => {
     if (!formData.nombre) {
       showToast('El nombre es requerido', 'error');
       return;
     }
-
     setLoading(true);
     try {
       const res = await fetch('/api/pos/productos', {
@@ -327,36 +334,26 @@ export default function SistemaPOS() {
       }
       setShowModal(null);
       setFormData({});
-    } catch (error) {
+    } catch {
       showToast('Error al guardar producto', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // CRUD COMPRAS
-  // ─────────────────────────────────────────────────────────────
-
   const handleSaveCompra = async () => {
     if (!formData.total || formData.total <= 0) {
       showToast('El total es requerido', 'error');
       return;
     }
-
     setLoading(true);
     try {
       const subtotal = formData.total / (1 + config.impuesto / 100);
       const impuestos = formData.total - subtotal;
-
       const res = await fetch('/api/pos/compras', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          subtotal,
-          impuestos,
-        }),
+        body: JSON.stringify({ ...formData, subtotal, impuestos }),
       });
       if (res.ok) {
         const nueva = await res.json();
@@ -367,23 +364,18 @@ export default function SistemaPOS() {
       }
       setShowModal(null);
       setFormData({});
-    } catch (error) {
+    } catch {
       showToast('Error al guardar compra', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // CRUD GASTOS
-  // ─────────────────────────────────────────────────────────────
-
   const handleSaveGasto = async () => {
     if (!formData.concepto || !formData.monto) {
       showToast('Concepto y monto son requeridos', 'error');
       return;
     }
-
     setLoading(true);
     try {
       const res = await fetch('/api/pos/gastos', {
@@ -400,23 +392,18 @@ export default function SistemaPOS() {
       }
       setShowModal(null);
       setFormData({});
-    } catch (error) {
+    } catch {
       showToast('Error al guardar gasto', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // CRUD USUARIOS
-  // ─────────────────────────────────────────────────────────────
-
   const handleSaveUsuario = async () => {
     if (!formData.nombre || !formData.email) {
       showToast('Nombre y email son requeridos', 'error');
       return;
     }
-
     setLoading(true);
     try {
       const res = await fetch('/api/pos/usuarios', {
@@ -433,36 +420,26 @@ export default function SistemaPOS() {
       }
       setShowModal(null);
       setFormData({});
-    } catch (error) {
+    } catch {
       showToast('Error al guardar usuario', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // CRUD VENTAS
-  // ─────────────────────────────────────────────────────────────
-
   const handleSaveVenta = async () => {
     if (!formData.total || formData.total <= 0) {
       showToast('El total es requerido', 'error');
       return;
     }
-
     setLoading(true);
     try {
       const subtotal = formData.total / (1 + config.impuesto / 100);
       const impuestos = formData.total - subtotal;
-
       const res = await fetch('/api/pos/ventas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          subtotal,
-          impuestos,
-        }),
+        body: JSON.stringify({ ...formData, subtotal, impuestos }),
       });
       if (res.ok) {
         const nueva = await res.json();
@@ -473,7 +450,7 @@ export default function SistemaPOS() {
       }
       setShowModal(null);
       setFormData({});
-    } catch (error) {
+    } catch {
       showToast('Error al guardar venta', 'error');
     } finally {
       setLoading(false);
@@ -498,16 +475,16 @@ export default function SistemaPOS() {
   ];
 
   // ─────────────────────────────────────────────────────────────
-  // MODAL COMPONENT
+  // COMPONENTES REUTILIZABLES
   // ─────────────────────────────────────────────────────────────
 
   const Modal = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-xl font-bold text-slate-800">{title}</h3>
-          <button onClick={() => { setShowModal(null); setFormData({}); setEditingItem(null); }} className="p-2 hover:bg-slate-100 rounded-lg">
-            <X className="w-5 h-5" />
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+          <h3 className="text-xl font-bold text-slate-800 dark:text-white">{title}</h3>
+          <button onClick={() => { setShowModal(null); setFormData({}); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
+            <X className="w-5 h-5 dark:text-slate-400" />
           </button>
         </div>
         <div className="p-6">{children}</div>
@@ -515,21 +492,38 @@ export default function SistemaPOS() {
     </div>
   );
 
-  // Input field component
   const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
     <input
       {...props}
-      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+      className="w-full px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
     />
   );
 
-  // Select component
   const Select = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
     <select
       {...props}
-      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+      className="w-full px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
     />
   );
+
+  const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+    <div className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 dark:border-slate-700 ${className}`}>
+      {children}
+    </div>
+  );
+
+  const TableHead = ({ children, colorClass }: { children: React.ReactNode; colorClass: string }) => {
+    const bgClasses: Record<string, string> = {
+      rose: 'bg-rose-50 dark:bg-rose-900/20',
+      amber: 'bg-amber-50 dark:bg-amber-900/20',
+      emerald: 'bg-emerald-50 dark:bg-emerald-900/20',
+      red: 'bg-red-50 dark:bg-red-900/20',
+      cyan: 'bg-cyan-50 dark:bg-cyan-900/20',
+      violet: 'bg-violet-50 dark:bg-violet-900/20',
+      sky: 'bg-sky-50 dark:bg-sky-900/20',
+    };
+    return <thead className={`${bgClasses[colorClass] || 'bg-slate-50 dark:bg-slate-700'} sticky top-0`}>{children}</thead>;
+  };
 
   // ─────────────────────────────────────────────────────────────
   // RENDER
@@ -537,17 +531,17 @@ export default function SistemaPOS() {
 
   if (initialLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-violet-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-violet-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-emerald-600 mx-auto mb-4" />
-          <p className="text-slate-600">Cargando sistema...</p>
+          <Loader2 className="w-12 h-12 animate-spin text-emerald-600 dark:text-emerald-400 mx-auto mb-4" />
+          <p className="text-slate-600 dark:text-slate-400">Cargando sistema...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-violet-50">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-violet-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 transition-colors duration-300">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-xl shadow-xl flex items-center gap-2 ${
@@ -559,7 +553,7 @@ export default function SistemaPOS() {
       )}
 
       {/* Header */}
-      <header className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-2xl sticky top-0 z-40">
+      <header className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800 text-white shadow-2xl sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -568,13 +562,22 @@ export default function SistemaPOS() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold">{config.nombreNegocio}</h1>
-                <p className="text-emerald-100 text-sm">Sistema POS - Base de datos Neon</p>
+                <p className="text-emerald-100 dark:text-emerald-200 text-sm">Sistema POS - Base de datos Neon</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Toggle Dark Mode */}
+              <button 
+                onClick={toggleDarkMode}
+                className="p-2 bg-white/20 rounded-xl hover:bg-white/30 transition flex items-center gap-2"
+                title={darkMode ? 'Modo claro' : 'Modo oscuro'}
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
               <button 
                 onClick={loadData}
                 className="p-2 bg-white/20 rounded-xl hover:bg-white/30 transition"
+                title="Actualizar datos"
               >
                 <RefreshCw className="w-5 h-5" />
               </button>
@@ -585,7 +588,7 @@ export default function SistemaPOS() {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-white/80 backdrop-blur-xl border-r border-white/50 min-h-[calc(100vh-80px)] sticky top-20 shadow-xl">
+        <aside className="w-64 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-r border-white/50 dark:border-slate-700 min-h-[calc(100vh-80px)] sticky top-20 shadow-xl">
           <nav className="p-4 space-y-2">
             {modules.map((mod) => {
               const Icon = mod.icon;
@@ -597,7 +600,7 @@ export default function SistemaPOS() {
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all transform hover:scale-[1.02] ${
                     isActive
                       ? `bg-gradient-to-r ${mod.color} text-white shadow-lg`
-                      : 'text-slate-600 hover:bg-gradient-to-r hover:from-slate-100 hover:to-slate-50'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-gradient-to-r hover:from-slate-100 hover:to-slate-50 dark:hover:from-slate-700 dark:hover:to-slate-600'
                   }`}
                 >
                   <Icon className="w-5 h-5" />
@@ -613,7 +616,7 @@ export default function SistemaPOS() {
           {/* Dashboard */}
           {activeModule === 'dashboard' && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-slate-800">Panel de Control</h2>
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Panel de Control</h2>
               
               {/* KPIs */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -691,14 +694,14 @@ export default function SistemaPOS() {
           {activeModule === 'clientes' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${moduleColors.clientes.bg} flex items-center justify-center`}>
                     <Users className="w-5 h-5 text-white" />
                   </div>
-                  Gestión de Clientes ({clientes.length})
+                  Clientes ({clientes.length})
                 </h2>
                 <button
-                  onClick={() => { setFormData({}); setEditingItem(null); setShowModal('nuevo-cliente'); }}
+                  onClick={() => { setFormData({}); setShowModal('nuevo-cliente'); }}
                   className={`px-6 py-3 bg-gradient-to-r ${moduleColors.clientes.bg} text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition flex items-center gap-2`}
                 >
                   <Plus className="w-5 h-5" />
@@ -706,8 +709,8 @@ export default function SistemaPOS() {
                 </button>
               </div>
 
-              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden">
-                <div className="p-4 border-b border-slate-100">
+              <Card className="overflow-hidden">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-700">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
@@ -715,39 +718,38 @@ export default function SistemaPOS() {
                       placeholder="Buscar clientes..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                      className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-rose-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
                     />
                   </div>
                 </div>
-
                 <div className="overflow-x-auto max-h-96">
                   <table className="w-full">
-                    <thead className="bg-rose-50 sticky top-0">
+                    <TableHead colorClass="rose">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-rose-800">Nombre</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-rose-800">Email</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-rose-800">Teléfono</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-rose-800">Compras</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-rose-800 dark:text-rose-300">Nombre</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-rose-800 dark:text-rose-300">Email</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-rose-800 dark:text-rose-300">Teléfono</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-rose-800 dark:text-rose-300">Compras</th>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    </TableHead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                       {clientes.filter(c => 
                         c.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         c.email?.toLowerCase().includes(searchTerm.toLowerCase())
                       ).map((cliente) => (
-                        <tr key={cliente.id} className="hover:bg-rose-50/50 transition">
+                        <tr key={cliente.id} className="hover:bg-rose-50/50 dark:hover:bg-rose-900/10 transition">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 bg-gradient-to-r from-rose-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold">
                                 {cliente.nombre?.charAt(0).toUpperCase()}
                               </div>
-                              <span className="font-medium text-slate-800">{cliente.nombre}</span>
+                              <span className="font-medium text-slate-800 dark:text-white">{cliente.nombre}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-slate-600">{cliente.email}</td>
-                          <td className="px-4 py-3 text-slate-600">{cliente.telefono || '-'}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{cliente.email}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{cliente.telefono || '-'}</td>
                           <td className="px-4 py-3">
-                            <span className="px-2 py-1 bg-rose-100 text-rose-700 rounded-full text-sm font-medium">
+                            <span className="px-2 py-1 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 rounded-full text-sm font-medium">
                               {cliente.comprasTotal || 0} compras
                             </span>
                           </td>
@@ -755,16 +757,16 @@ export default function SistemaPOS() {
                       ))}
                       {clientes.length === 0 && (
                         <tr>
-                          <td colSpan={4} className="px-4 py-12 text-center text-slate-500">
-                            <Users className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-                            No hay clientes registrados. ¡Agrega el primero!
+                          <td colSpan={4} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                            <Users className="w-12 h-12 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                            No hay clientes registrados
                           </td>
                         </tr>
                       )}
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
 
@@ -772,14 +774,14 @@ export default function SistemaPOS() {
           {activeModule === 'proveedores' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${moduleColors.proveedores.bg} flex items-center justify-center`}>
                     <Truck className="w-5 h-5 text-white" />
                   </div>
                   Proveedores ({proveedores.length})
                 </h2>
                 <button
-                  onClick={() => { setFormData({}); setEditingItem(null); setShowModal('nuevo-proveedor'); }}
+                  onClick={() => { setFormData({}); setShowModal('nuevo-proveedor'); }}
                   className={`px-6 py-3 bg-gradient-to-r ${moduleColors.proveedores.bg} text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition flex items-center gap-2`}
                 >
                   <Plus className="w-5 h-5" />
@@ -787,37 +789,37 @@ export default function SistemaPOS() {
                 </button>
               </div>
 
-              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="overflow-x-auto max-h-96">
                   <table className="w-full">
-                    <thead className="bg-amber-50 sticky top-0">
+                    <TableHead colorClass="amber">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-amber-800">Nombre</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-amber-800">Contacto</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-amber-800">Email</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-amber-800">Productos</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-amber-800 dark:text-amber-300">Nombre</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-amber-800 dark:text-amber-300">Contacto</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-amber-800 dark:text-amber-300">Email</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-amber-800 dark:text-amber-300">Productos</th>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    </TableHead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                       {proveedores.map((prov) => (
-                        <tr key={prov.id} className="hover:bg-amber-50/50 transition">
+                        <tr key={prov.id} className="hover:bg-amber-50/50 dark:hover:bg-amber-900/10 transition">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 bg-gradient-to-r from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold">
                                 {prov.nombre?.charAt(0).toUpperCase()}
                               </div>
-                              <span className="font-medium text-slate-800">{prov.nombre}</span>
+                              <span className="font-medium text-slate-800 dark:text-white">{prov.nombre}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-slate-600">{prov.contacto || '-'}</td>
-                          <td className="px-4 py-3 text-slate-600">{prov.email || '-'}</td>
-                          <td className="px-4 py-3 text-slate-600">{prov.productos || '-'}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{prov.contacto || '-'}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{prov.email || '-'}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{prov.productos || '-'}</td>
                         </tr>
                       ))}
                       {proveedores.length === 0 && (
                         <tr>
-                          <td colSpan={4} className="px-4 py-12 text-center text-slate-500">
-                            <Truck className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+                          <td colSpan={4} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                            <Truck className="w-12 h-12 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                             No hay proveedores registrados
                           </td>
                         </tr>
@@ -825,7 +827,71 @@ export default function SistemaPOS() {
                     </tbody>
                   </table>
                 </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Inventario Module */}
+          {activeModule === 'inventario' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${moduleColors.inventario.bg} flex items-center justify-center`}>
+                    <Package className="w-5 h-5 text-white" />
+                  </div>
+                  Inventario ({productos.length})
+                </h2>
+                <button
+                  onClick={() => { setFormData({ categoria: 'General', stock: 0, stockMinimo: 5, precioCompra: 0, precioVenta: 0 }); setShowModal('nuevo-producto'); }}
+                  className={`px-6 py-3 bg-gradient-to-r ${moduleColors.inventario.bg} text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition flex items-center gap-2`}
+                >
+                  <Plus className="w-5 h-5" />
+                  Nuevo Producto
+                </button>
               </div>
+
+              <Card className="overflow-hidden">
+                <div className="overflow-x-auto max-h-96">
+                  <table className="w-full">
+                    <TableHead colorClass="cyan">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-cyan-800 dark:text-cyan-300">Código</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-cyan-800 dark:text-cyan-300">Nombre</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-cyan-800 dark:text-cyan-300">Categoría</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-cyan-800 dark:text-cyan-300">Stock</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-cyan-800 dark:text-cyan-300">Precio</th>
+                      </tr>
+                    </TableHead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                      {productos.map((prod) => (
+                        <tr key={prod.id} className="hover:bg-cyan-50/50 dark:hover:bg-cyan-900/10 transition">
+                          <td className="px-4 py-3 font-mono text-sm text-slate-600 dark:text-slate-400">{prod.codigo}</td>
+                          <td className="px-4 py-3 font-medium text-slate-800 dark:text-white">{prod.nombre}</td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-1 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 rounded-full text-sm">
+                              {prod.categoria}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`font-semibold ${prod.stock <= prod.stockMinimo ? 'text-red-600 dark:text-red-400' : 'text-slate-800 dark:text-white'}`}>
+                              {prod.stock} {prod.stock <= prod.stockMinimo && '⚠️'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-cyan-600 dark:text-cyan-400">{formatCurrency(prod.precioVenta)}</td>
+                        </tr>
+                      ))}
+                      {productos.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                            <Package className="w-12 h-12 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                            No hay productos registrados
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             </div>
           )}
 
@@ -833,14 +899,14 @@ export default function SistemaPOS() {
           {activeModule === 'compras' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${moduleColors.compras.bg} flex items-center justify-center`}>
                     <Receipt className="w-5 h-5 text-white" />
                   </div>
                   Compras ({compras.length})
                 </h2>
                 <button
-                  onClick={() => { setFormData({}); setEditingItem(null); setShowModal('nueva-compra'); }}
+                  onClick={() => { setFormData({}); setShowModal('nueva-compra'); }}
                   className={`px-6 py-3 bg-gradient-to-r ${moduleColors.compras.bg} text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition flex items-center gap-2`}
                 >
                   <Plus className="w-5 h-5" />
@@ -848,30 +914,30 @@ export default function SistemaPOS() {
                 </button>
               </div>
 
-              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="overflow-x-auto max-h-96">
                   <table className="w-full">
-                    <thead className="bg-emerald-50 sticky top-0">
+                    <TableHead colorClass="emerald">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-800">Nº Compra</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-800">Proveedor</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-800">Fecha</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-800">Total</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-800">Estado</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-800 dark:text-emerald-300">Nº Compra</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-800 dark:text-emerald-300">Proveedor</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-800 dark:text-emerald-300">Fecha</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-800 dark:text-emerald-300">Total</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-800 dark:text-emerald-300">Estado</th>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    </TableHead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                       {compras.map((comp) => (
-                        <tr key={comp.id} className="hover:bg-emerald-50/50 transition">
-                          <td className="px-4 py-3 font-medium text-slate-800">{comp.numeroCompra}</td>
-                          <td className="px-4 py-3 text-slate-600">{comp.proveedorNombre || '-'}</td>
-                          <td className="px-4 py-3 text-slate-600">{formatDate(comp.fecha)}</td>
-                          <td className="px-4 py-3 font-semibold text-emerald-600">{formatCurrency(comp.total)}</td>
+                        <tr key={comp.id} className="hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 transition">
+                          <td className="px-4 py-3 font-medium text-slate-800 dark:text-white">{comp.numeroCompra}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{comp.proveedorNombre || '-'}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDate(comp.fecha)}</td>
+                          <td className="px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(comp.total)}</td>
                           <td className="px-4 py-3">
                             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              comp.estado === 'Recibida' ? 'bg-emerald-100 text-emerald-700' :
-                              comp.estado === 'Pendiente' ? 'bg-amber-100 text-amber-700' :
-                              'bg-red-100 text-red-700'
+                              comp.estado === 'Recibida' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                              comp.estado === 'Pendiente' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
+                              'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
                             }`}>
                               {comp.estado}
                             </span>
@@ -880,8 +946,8 @@ export default function SistemaPOS() {
                       ))}
                       {compras.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
-                            <Receipt className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+                          <td colSpan={5} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                            <Receipt className="w-12 h-12 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                             No hay compras registradas
                           </td>
                         </tr>
@@ -889,7 +955,7 @@ export default function SistemaPOS() {
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
 
@@ -897,14 +963,14 @@ export default function SistemaPOS() {
           {activeModule === 'gastos' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${moduleColors.gastos.bg} flex items-center justify-center`}>
                     <TrendingDown className="w-5 h-5 text-white" />
                   </div>
                   Gastos ({gastos.length})
                 </h2>
                 <button
-                  onClick={() => { setFormData({ categoria: 'Operativo' }); setEditingItem(null); setShowModal('nuevo-gasto'); }}
+                  onClick={() => { setFormData({ categoria: 'Operativo' }); setShowModal('nuevo-gasto'); }}
                   className={`px-6 py-3 bg-gradient-to-r ${moduleColors.gastos.bg} text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition flex items-center gap-2`}
                 >
                   <Plus className="w-5 h-5" />
@@ -912,34 +978,34 @@ export default function SistemaPOS() {
                 </button>
               </div>
 
-              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="overflow-x-auto max-h-96">
                   <table className="w-full">
-                    <thead className="bg-red-50 sticky top-0">
+                    <TableHead colorClass="red">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-red-800">Concepto</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-red-800">Categoría</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-red-800">Fecha</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-red-800">Monto</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-red-800 dark:text-red-300">Concepto</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-red-800 dark:text-red-300">Categoría</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-red-800 dark:text-red-300">Fecha</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-red-800 dark:text-red-300">Monto</th>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    </TableHead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                       {gastos.map((gasto) => (
-                        <tr key={gasto.id} className="hover:bg-red-50/50 transition">
-                          <td className="px-4 py-3 font-medium text-slate-800">{gasto.concepto}</td>
+                        <tr key={gasto.id} className="hover:bg-red-50/50 dark:hover:bg-red-900/10 transition">
+                          <td className="px-4 py-3 font-medium text-slate-800 dark:text-white">{gasto.concepto}</td>
                           <td className="px-4 py-3">
-                            <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-sm">
+                            <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full text-sm">
                               {gasto.categoria}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-slate-600">{formatDate(gasto.fecha)}</td>
-                          <td className="px-4 py-3 font-semibold text-red-600">{formatCurrency(gasto.monto)}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDate(gasto.fecha)}</td>
+                          <td className="px-4 py-3 font-semibold text-red-600 dark:text-red-400">{formatCurrency(gasto.monto)}</td>
                         </tr>
                       ))}
                       {gastos.length === 0 && (
                         <tr>
-                          <td colSpan={4} className="px-4 py-12 text-center text-slate-500">
-                            <TrendingDown className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+                          <td colSpan={4} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                            <TrendingDown className="w-12 h-12 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                             No hay gastos registrados
                           </td>
                         </tr>
@@ -947,71 +1013,7 @@ export default function SistemaPOS() {
                     </tbody>
                   </table>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Inventario Module */}
-          {activeModule === 'inventario' && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${moduleColors.inventario.bg} flex items-center justify-center`}>
-                    <Package className="w-5 h-5 text-white" />
-                  </div>
-                  Inventario ({productos.length})
-                </h2>
-                <button
-                  onClick={() => { setFormData({ categoria: 'General', stock: 0, stockMinimo: 5, precioCompra: 0, precioVenta: 0 }); setEditingItem(null); setShowModal('nuevo-producto'); }}
-                  className={`px-6 py-3 bg-gradient-to-r ${moduleColors.inventario.bg} text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition flex items-center gap-2`}
-                >
-                  <Plus className="w-5 h-5" />
-                  Nuevo Producto
-                </button>
-              </div>
-
-              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden">
-                <div className="overflow-x-auto max-h-96">
-                  <table className="w-full">
-                    <thead className="bg-cyan-50 sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-cyan-800">Código</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-cyan-800">Nombre</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-cyan-800">Categoría</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-cyan-800">Stock</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-cyan-800">Precio Venta</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {productos.map((prod) => (
-                        <tr key={prod.id} className="hover:bg-cyan-50/50 transition">
-                          <td className="px-4 py-3 font-mono text-sm text-slate-600">{prod.codigo}</td>
-                          <td className="px-4 py-3 font-medium text-slate-800">{prod.nombre}</td>
-                          <td className="px-4 py-3">
-                            <span className="px-2 py-1 bg-cyan-100 text-cyan-700 rounded-full text-sm">
-                              {prod.categoria}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`font-semibold ${prod.stock <= prod.stockMinimo ? 'text-red-600' : 'text-slate-800'}`}>
-                              {prod.stock} {prod.stock <= prod.stockMinimo && '⚠️'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 font-semibold text-cyan-600">{formatCurrency(prod.precioVenta)}</td>
-                        </tr>
-                      ))}
-                      {productos.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
-                            <Package className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-                            No hay productos registrados
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              </Card>
             </div>
           )}
 
@@ -1019,7 +1021,7 @@ export default function SistemaPOS() {
           {activeModule === 'ventas' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${moduleColors.ventas.bg} flex items-center justify-center`}>
                     <ShoppingCart className="w-5 h-5 text-white" />
                   </div>
@@ -1034,27 +1036,27 @@ export default function SistemaPOS() {
                 </button>
               </div>
 
-              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="overflow-x-auto max-h-96">
                   <table className="w-full">
-                    <thead className="bg-violet-50 sticky top-0">
+                    <TableHead colorClass="violet">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-violet-800">Nº Venta</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-violet-800">Cliente</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-violet-800">Fecha</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-violet-800">Total</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-violet-800">Método</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-violet-800 dark:text-violet-300">Nº Venta</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-violet-800 dark:text-violet-300">Cliente</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-violet-800 dark:text-violet-300">Fecha</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-violet-800 dark:text-violet-300">Total</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-violet-800 dark:text-violet-300">Método</th>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    </TableHead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                       {ventas.map((venta) => (
-                        <tr key={venta.id} className="hover:bg-violet-50/50 transition">
-                          <td className="px-4 py-3 font-medium text-slate-800">{venta.numeroVenta}</td>
-                          <td className="px-4 py-3 text-slate-600">{venta.clienteNombre || '-'}</td>
-                          <td className="px-4 py-3 text-slate-600">{formatDate(venta.createdAt)}</td>
-                          <td className="px-4 py-3 font-semibold text-violet-600">{formatCurrency(venta.total)}</td>
+                        <tr key={venta.id} className="hover:bg-violet-50/50 dark:hover:bg-violet-900/10 transition">
+                          <td className="px-4 py-3 font-medium text-slate-800 dark:text-white">{venta.numeroVenta}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{venta.clienteNombre || '-'}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDate(venta.createdAt)}</td>
+                          <td className="px-4 py-3 font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(venta.total)}</td>
                           <td className="px-4 py-3">
-                            <span className="px-2 py-1 bg-violet-100 text-violet-700 rounded-full text-sm">
+                            <span className="px-2 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 rounded-full text-sm">
                               {venta.metodoPago}
                             </span>
                           </td>
@@ -1062,8 +1064,8 @@ export default function SistemaPOS() {
                       ))}
                       {ventas.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
-                            <ShoppingCart className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+                          <td colSpan={5} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                            <ShoppingCart className="w-12 h-12 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                             No hay ventas registradas
                           </td>
                         </tr>
@@ -1071,7 +1073,7 @@ export default function SistemaPOS() {
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
 
@@ -1079,14 +1081,14 @@ export default function SistemaPOS() {
           {activeModule === 'usuarios' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${moduleColors.usuarios.bg} flex items-center justify-center`}>
                     <UserCheck className="w-5 h-5 text-white" />
                   </div>
                   Usuarios ({usuarios.length})
                 </h2>
                 <button
-                  onClick={() => { setFormData({ rol: 'vendedor' }); setEditingItem(null); setShowModal('nuevo-usuario'); }}
+                  onClick={() => { setFormData({ rol: 'vendedor' }); setShowModal('nuevo-usuario'); }}
                   className={`px-6 py-3 bg-gradient-to-r ${moduleColors.usuarios.bg} text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition flex items-center gap-2`}
                 >
                   <Plus className="w-5 h-5" />
@@ -1094,24 +1096,24 @@ export default function SistemaPOS() {
                 </button>
               </div>
 
-              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="overflow-x-auto max-h-96">
                   <table className="w-full">
-                    <thead className="bg-sky-50 sticky top-0">
+                    <TableHead colorClass="sky">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-sky-800">Nombre</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-sky-800">Email</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-sky-800">Rol</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-sky-800 dark:text-sky-300">Nombre</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-sky-800 dark:text-sky-300">Email</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-sky-800 dark:text-sky-300">Rol</th>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    </TableHead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                       {usuarios.map((user) => (
-                        <tr key={user.id} className="hover:bg-sky-50/50 transition">
-                          <td className="px-4 py-3 font-medium text-slate-800">{user.nombre}</td>
-                          <td className="px-4 py-3 text-slate-600">{user.email}</td>
+                        <tr key={user.id} className="hover:bg-sky-50/50 dark:hover:bg-sky-900/10 transition">
+                          <td className="px-4 py-3 font-medium text-slate-800 dark:text-white">{user.nombre}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{user.email}</td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 rounded-full text-sm font-medium ${
-                              user.rol === 'admin' ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-700'
+                              user.rol === 'admin' ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
                             }`}>
                               {user.rol}
                             </span>
@@ -1120,8 +1122,8 @@ export default function SistemaPOS() {
                       ))}
                       {usuarios.length === 0 && (
                         <tr>
-                          <td colSpan={3} className="px-4 py-12 text-center text-slate-500">
-                            <UserCheck className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+                          <td colSpan={3} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                            <UserCheck className="w-12 h-12 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                             No hay usuarios registrados
                           </td>
                         </tr>
@@ -1129,14 +1131,14 @@ export default function SistemaPOS() {
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
 
           {/* Reportes Module */}
           {activeModule === 'reportes' && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${moduleColors.reportes.bg} flex items-center justify-center`}>
                   <FileText className="w-5 h-5 text-white" />
                 </div>
@@ -1144,61 +1146,61 @@ export default function SistemaPOS() {
               </h2>
 
               <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/50">
-                  <h3 className="font-bold text-lg text-slate-800 mb-4">Resumen de Ventas</h3>
+                <Card className="p-6">
+                  <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-4">Resumen de Ventas</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Total Ventas:</span>
-                      <span className="font-bold text-violet-600">{ventas.length}</span>
+                      <span className="text-slate-600 dark:text-slate-400">Total Ventas:</span>
+                      <span className="font-bold text-violet-600 dark:text-violet-400">{ventas.length}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Monto Total:</span>
-                      <span className="font-bold text-violet-600">{formatCurrency(ventas.reduce((s, v) => s + v.total, 0))}</span>
+                      <span className="text-slate-600 dark:text-slate-400">Monto Total:</span>
+                      <span className="font-bold text-violet-600 dark:text-violet-400">{formatCurrency(ventas.reduce((s, v) => s + v.total, 0))}</span>
                     </div>
                   </div>
-                </div>
+                </Card>
 
-                <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/50">
-                  <h3 className="font-bold text-lg text-slate-800 mb-4">Resumen de Gastos</h3>
+                <Card className="p-6">
+                  <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-4">Resumen de Gastos</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Total Gastos:</span>
-                      <span className="font-bold text-red-600">{gastos.length}</span>
+                      <span className="text-slate-600 dark:text-slate-400">Total Gastos:</span>
+                      <span className="font-bold text-red-600 dark:text-red-400">{gastos.length}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Monto Total:</span>
-                      <span className="font-bold text-red-600">{formatCurrency(gastos.reduce((s, g) => s + g.monto, 0))}</span>
+                      <span className="text-slate-600 dark:text-slate-400">Monto Total:</span>
+                      <span className="font-bold text-red-600 dark:text-red-400">{formatCurrency(gastos.reduce((s, g) => s + g.monto, 0))}</span>
                     </div>
                   </div>
-                </div>
+                </Card>
 
-                <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/50">
-                  <h3 className="font-bold text-lg text-slate-800 mb-4">Inventario</h3>
+                <Card className="p-6">
+                  <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-4">Inventario</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Productos:</span>
-                      <span className="font-bold text-cyan-600">{productos.length}</span>
+                      <span className="text-slate-600 dark:text-slate-400">Productos:</span>
+                      <span className="font-bold text-cyan-600 dark:text-cyan-400">{productos.length}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Stock Bajo:</span>
-                      <span className="font-bold text-red-600">{productos.filter(p => p.stock <= p.stockMinimo).length}</span>
+                      <span className="text-slate-600 dark:text-slate-400">Stock Bajo:</span>
+                      <span className="font-bold text-red-600 dark:text-red-400">{productos.filter(p => p.stock <= p.stockMinimo).length}</span>
                     </div>
                   </div>
-                </div>
+                </Card>
 
-                <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/50">
-                  <h3 className="font-bold text-lg text-slate-800 mb-4">Clientes y Proveedores</h3>
+                <Card className="p-6">
+                  <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-4">Clientes y Proveedores</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Clientes:</span>
-                      <span className="font-bold text-rose-600">{clientes.length}</span>
+                      <span className="text-slate-600 dark:text-slate-400">Clientes:</span>
+                      <span className="font-bold text-rose-600 dark:text-rose-400">{clientes.length}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Proveedores:</span>
-                      <span className="font-bold text-amber-600">{proveedores.length}</span>
+                      <span className="text-slate-600 dark:text-slate-400">Proveedores:</span>
+                      <span className="font-bold text-amber-600 dark:text-amber-400">{proveedores.length}</span>
                     </div>
                   </div>
-                </div>
+                </Card>
               </div>
             </div>
           )}
@@ -1206,17 +1208,17 @@ export default function SistemaPOS() {
           {/* Config Module */}
           {activeModule === 'config' && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${moduleColors.config.bg} flex items-center justify-center`}>
                   <Settings className="w-5 h-5 text-white" />
                 </div>
                 Configuración
               </h2>
 
-              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/50">
+              <Card className="p-6">
                 <div className="grid gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Negocio</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Negocio</label>
                     <Input
                       value={config.nombreNegocio}
                       onChange={(e) => setConfig({ ...config, nombreNegocio: e.target.value })}
@@ -1224,14 +1226,14 @@ export default function SistemaPOS() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Moneda</label>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Moneda</label>
                       <Input
                         value={config.moneda}
                         onChange={(e) => setConfig({ ...config, moneda: e.target.value })}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Impuesto (%)</label>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Impuesto (%)</label>
                       <Input
                         type="number"
                         value={config.impuesto}
@@ -1239,6 +1241,27 @@ export default function SistemaPOS() {
                       />
                     </div>
                   </div>
+                  
+                  {/* Dark Mode Toggle in Config */}
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                    <div>
+                      <p className="font-medium text-slate-800 dark:text-white">Modo Oscuro</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">Cambia entre modo claro y oscuro</p>
+                    </div>
+                    <button
+                      onClick={toggleDarkMode}
+                      className={`relative w-14 h-7 rounded-full transition-colors ${
+                        darkMode ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
+                      }`}
+                    >
+                      <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-transform ${
+                        darkMode ? 'translate-x-8' : 'translate-x-1'
+                      }`}>
+                        {darkMode ? <Moon className="w-3 h-3 m-1 text-slate-800" /> : <Sun className="w-3 h-3 m-1 text-amber-500" />}
+                      </div>
+                    </button>
+                  </div>
+
                   <button
                     onClick={async () => {
                       await fetch('/api/pos/config', {
@@ -1253,7 +1276,7 @@ export default function SistemaPOS() {
                     Guardar Configuración
                   </button>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
         </main>
@@ -1264,19 +1287,19 @@ export default function SistemaPOS() {
         <Modal title="Registrar Cliente">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre *</label>
               <Input value={formData.nombre || ''} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email *</label>
               <Input type="email" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Teléfono</label>
               <Input value={formData.telefono || ''} onChange={(e) => setFormData({ ...formData, telefono: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Dirección</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Dirección</label>
               <Input value={formData.direccion || ''} onChange={(e) => setFormData({ ...formData, direccion: e.target.value })} />
             </div>
             <button
@@ -1285,7 +1308,7 @@ export default function SistemaPOS() {
               className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading && <Loader2 className="w-5 h-5 animate-spin" />}
-              {editingItem ? 'Actualizar' : 'Registrar'} Cliente
+              Registrar Cliente
             </button>
           </div>
         </Modal>
@@ -1295,23 +1318,23 @@ export default function SistemaPOS() {
         <Modal title="Nuevo Proveedor">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre *</label>
               <Input value={formData.nombre || ''} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contacto</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Contacto</label>
               <Input value={formData.contacto || ''} onChange={(e) => setFormData({ ...formData, contacto: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
               <Input type="email" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Teléfono</label>
               <Input value={formData.telefono || ''} onChange={(e) => setFormData({ ...formData, telefono: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Productos que provee</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Productos que provee</label>
               <Input value={formData.productos || ''} onChange={(e) => setFormData({ ...formData, productos: e.target.value })} />
             </div>
             <button
@@ -1330,15 +1353,15 @@ export default function SistemaPOS() {
         <Modal title="Nuevo Producto">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre *</label>
               <Input value={formData.nombre || ''} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Código</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Código</label>
               <Input value={formData.codigo || ''} onChange={(e) => setFormData({ ...formData, codigo: e.target.value })} placeholder="Auto-generado si vacío" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Categoría</label>
               <Select value={formData.categoria || 'General'} onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}>
                 <option>General</option>
                 <option>Alimentos</option>
@@ -1349,21 +1372,21 @@ export default function SistemaPOS() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Stock</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Stock</label>
                 <Input type="number" value={formData.stock || 0} onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Stock Mínimo</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Stock Mínimo</label>
                 <Input type="number" value={formData.stockMinimo || 5} onChange={(e) => setFormData({ ...formData, stockMinimo: parseInt(e.target.value) || 5 })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Precio Compra</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Precio Compra</label>
                 <Input type="number" step="0.01" value={formData.precioCompra || 0} onChange={(e) => setFormData({ ...formData, precioCompra: parseFloat(e.target.value) || 0 })} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Precio Venta</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Precio Venta</label>
                 <Input type="number" step="0.01" value={formData.precioVenta || 0} onChange={(e) => setFormData({ ...formData, precioVenta: parseFloat(e.target.value) || 0 })} />
               </div>
             </div>
@@ -1383,7 +1406,7 @@ export default function SistemaPOS() {
         <Modal title="Nueva Venta">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Cliente</label>
               <Select value={formData.clienteId || ''} onChange={(e) => {
                 const cliente = clientes.find(c => c.id === e.target.value);
                 setFormData({ ...formData, clienteId: e.target.value, clienteNombre: cliente?.nombre || '' });
@@ -1393,11 +1416,11 @@ export default function SistemaPOS() {
               </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Total *</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Total *</label>
               <Input type="number" step="0.01" value={formData.total || ''} onChange={(e) => setFormData({ ...formData, total: parseFloat(e.target.value) || 0 })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Método de Pago</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Método de Pago</label>
               <Select value={formData.metodoPago || 'Efectivo'} onChange={(e) => setFormData({ ...formData, metodoPago: e.target.value })}>
                 <option>Efectivo</option>
                 <option>Tarjeta</option>
@@ -1420,7 +1443,7 @@ export default function SistemaPOS() {
         <Modal title="Nueva Compra">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Proveedor</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Proveedor</label>
               <Select value={formData.proveedorId || ''} onChange={(e) => {
                 const prov = proveedores.find(p => p.id === e.target.value);
                 setFormData({ ...formData, proveedorId: e.target.value, proveedorNombre: prov?.nombre || '' });
@@ -1430,11 +1453,11 @@ export default function SistemaPOS() {
               </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Total *</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Total *</label>
               <Input type="number" step="0.01" value={formData.total || ''} onChange={(e) => setFormData({ ...formData, total: parseFloat(e.target.value) || 0 })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Estado</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Estado</label>
               <Select value={formData.estado || 'Pendiente'} onChange={(e) => setFormData({ ...formData, estado: e.target.value })}>
                 <option>Pendiente</option>
                 <option>Recibida</option>
@@ -1457,11 +1480,11 @@ export default function SistemaPOS() {
         <Modal title="Registrar Gasto">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Concepto *</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Concepto *</label>
               <Input value={formData.concepto || ''} onChange={(e) => setFormData({ ...formData, concepto: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Categoría</label>
               <Select value={formData.categoria || 'Operativo'} onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}>
                 <option>Operativo</option>
                 <option>Servicios</option>
@@ -1471,11 +1494,11 @@ export default function SistemaPOS() {
               </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Monto *</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Monto *</label>
               <Input type="number" step="0.01" value={formData.monto || ''} onChange={(e) => setFormData({ ...formData, monto: parseFloat(e.target.value) || 0 })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descripción</label>
               <Input value={formData.descripcion || ''} onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })} />
             </div>
             <button
@@ -1494,15 +1517,15 @@ export default function SistemaPOS() {
         <Modal title="Nuevo Usuario">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre *</label>
               <Input value={formData.nombre || ''} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email *</label>
               <Input type="email" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Rol</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Rol</label>
               <Select value={formData.rol || 'vendedor'} onChange={(e) => setFormData({ ...formData, rol: e.target.value })}>
                 <option value="vendedor">Vendedor</option>
                 <option value="admin">Administrador</option>
